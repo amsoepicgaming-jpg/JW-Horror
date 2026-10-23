@@ -8,6 +8,13 @@ constexpr std::array<const char*, 16> sounds = {"Haunted Bell","Ghost Choir","Da
 constexpr std::array<const char*, 8> params = {"level","attack","release","tone","drive","reverb","delay","width"};
 }
 
+static void writeStartupLog(const juce::String& message) {
+ auto log = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                  .getChildFile("JW Audio Labs").getChildFile("JW Horror startup.log");
+ log.getParentDirectory().createDirectory();
+ log.appendText(juce::Time::getCurrentTime().toString(true,true) + " " + message + "\n");
+}
+
 class HorrorProcessor final : public juce::AudioProcessor {
 public:
  using APVTS = juce::AudioProcessorValueTreeState;
@@ -18,7 +25,7 @@ public:
  juce::AudioBuffer<float> echo;
  int echoIndex = 0;
  double sampleRateHz = 44100;
- HorrorProcessor() : AudioProcessor(BusesProperties().withOutput("Stereo", juce::AudioChannelSet::stereo(), true)) {}
+ HorrorProcessor() : AudioProcessor(BusesProperties().withOutput("Stereo", juce::AudioChannelSet::stereo(), true)) { writeStartupLog("Processor created"); }
  static APVTS::ParameterLayout layout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> p;
   const float defaults[] = {0.7f,0.05f,0.35f,0.6f,0.1f,0.2f,0.15f,0.5f};
@@ -43,6 +50,7 @@ public:
  }
  float value(const char* id) const { return state.getRawParameterValue(id)->load(); }
  void prepareToPlay(double sr, int maximumBlockSize) override {
+  writeStartupLog("Audio prepared");
   sampleRateHz = sr;
   echo.setSize(2,juce::jmax(1,(int)(sr*0.6)));
   echo.clear(); echoIndex=0;
@@ -139,6 +147,7 @@ class HorrorEditor final : public juce::AudioProcessorEditor {
  std::unique_ptr<HorrorProcessor::APVTS::ComboBoxAttachment> presetLink;
 public:
  explicit HorrorEditor(HorrorProcessor& p):AudioProcessorEditor(&p),processor(p) {
+  writeStartupLog("Editor creating");
   setSize(900,600);
   for(int i=0;i<8;++i) {
    auto s=std::make_unique<juce::Slider>();
@@ -153,6 +162,7 @@ public:
   for(int i=0;i<16;++i)preset.addItem(sounds[i],i+1);
   addAndMakeVisible(preset);
   presetLink=std::make_unique<HorrorProcessor::APVTS::ComboBoxAttachment>(processor.state,"preset",preset);
+  writeStartupLog("Editor created");
  }
  void paint(juce::Graphics& g) override {
   g.fillAll(juce::Colour(0xff130a0d));
