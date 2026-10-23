@@ -28,11 +28,34 @@ jobs:
         run: cmake -S . -B build -G Xcode '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
       - name: Build
         run: cmake --build build --config Release --parallel 3
+      - name: Package complete Windows VST3 bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $root = "build/JWHorror_artefacts/Release"
+          $bundle = Get-ChildItem -Path "$root/VST3" -Filter "*.vst3" | Select-Object -First 1
+          if (-not $bundle) { throw "Missing VST3 bundle" }
+          $binary = Get-ChildItem -Path $bundle.FullName -Recurse -File -Filter "*.vst3" | Select-Object -First 1
+          if (-not $binary) { throw "Missing x64 VST3 binary in bundle" }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -LiteralPath $bundle.FullName -Destination dist -Recurse
+          $exe = Get-ChildItem -Path "$root/Standalone" -Filter "*.exe" | Select-Object -First 1
+          if ($exe) { Copy-Item -LiteralPath $exe.FullName -Destination dist }
+          Compress-Archive -Path "dist/*" -DestinationPath "JW-Horror-Windows-x64.zip" -Force
+      - name: Package complete macOS plugins
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="build/JWHorror_artefacts/Release"
+          mkdir -p dist
+          find "$root/VST3" -maxdepth 1 -name '*.vst3' -exec cp -R {} dist/ \;
+          find "$root/AU" -maxdepth 1 -name '*.component' -exec cp -R {} dist/ \;
+          find "$root/Standalone" -maxdepth 1 -name '*.app' -exec cp -R {} dist/ \;
+          test -n "$(find dist -maxdepth 1 -name '*.vst3' -print -quit)"
+          ditto -c -k --sequesterRsrc --keepParent dist JW-Horror-macOS-universal.zip
       - uses: actions/upload-artifact@v4
         with:
           name: JW-Horror-${{ matrix.label }}
-          path: |
-            build/JWHorror_artefacts/Release/VST3/**
-            build/JWHorror_artefacts/Release/AU/**
-            build/JWHorror_artefacts/Release/Standalone/**
+          path: JW-Horror-${{ matrix.label }}.zip
           if-no-files-found: error
