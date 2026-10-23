@@ -119,7 +119,7 @@ public:
   juce::dsp::Reverb::Parameters rv;
   rv.roomSize=0.65f;rv.damping=0.45f;
   rv.wetLevel=value("reverb")*0.45f;rv.dryLevel=1.0f-rv.wetLevel;
-  reverb.setParameters(rv);reverb.processStereo(left,right,b.getNumSamples());
+  reverb.setParameters(rv);juce::dsp::AudioBlock<float> block(b);juce::dsp::ProcessContextReplacing<float> context(block);reverb.process(context);
  }
  void getStateInformation(juce::MemoryBlock& dest) override {
   if(auto xml=state.copyState().createXml())copyXmlToBinary(*xml,dest);
